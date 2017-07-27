@@ -22,7 +22,7 @@ module para2ser(
   output wire output_done
   );
 
-  reg [3:0] data_cnt
+  reg [3:0] data_cnt;
   always @(posedge clk or negedge rst_n) begin
     if(~rst_n)
       data_cnt  <=  4'b0;
