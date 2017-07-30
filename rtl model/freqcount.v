@@ -17,9 +17,10 @@
 ******************************************************************/
 /*
 
-  NOTICE:    1.make sure the number of signals is less than 255 !!!!!
-             2. if two signals's freq is the same,the result maybe different
-             from the gloden model,but it is also true.
+  NOTICE:    1.make sure the number of signals is less than 255 !!
+             2. the coding result may be different from the software,
+             but they generate a same huffman tree,only the coding method
+             is different
 
 ********************************************************************/
 module freqcount(

@@ -11,30 +11,35 @@
 ******************************************************************/
 
 module HuffmanCode (
-  input         clk,
-  input         rst_n,
-  input [18:0]  data_out0,
-  input [18:0]  data_out1,
-  input [18:0]  data_out2,
-  input [18:0]  data_out3,
-  input [18:0]  data_out4,
-  input [18:0]  data_out5,
-  input [18:0]  data_out6,
-  input [18:0]  data_out7,
-  input [18:0]  data_out8,
-  input [18:0]  data_out9,
-  input         req_coding,
-  output reg    ack_coding
-  //TODO add signal
+  input             clk,
+  input             rst_n,
+  input [18:0]      data_in0,
+  input [18:0]      data_in1,
+  input [18:0]      data_in2,
+  input [18:0]      data_in3,
+  input [18:0]      data_in4,
+  input [18:0]      data_in5,
+  input [18:0]      data_in6,
+  input [18:0]      data_in7,
+  input [18:0]      data_in8,
+  input [18:0]      data_in9,
+  input             req_coding,
+  output reg        ack_coding,
+  output reg [8:0]  data_out,
+  output reg [3:0]  data_len,
+  output wire       trans_start
   );
 
   localparam  IDLE =     2'd0;
   localparam  CODING =   2'd1;
   localparam  TRAVERSE = 2'd2;
-  reg         state;           // coding=0, traverse=1
-  reg         next_state;
+  localparam  OUTPUT =   2'd3;
+  reg  [1:0]  state;           // coding=0, traverse=1
+  reg  [1:0]  next_state;
   reg  [3:0]  phase;
   reg  [3:0]  next_phase;
+  reg  [3:0]  loop;
+  reg  [3:0]  next_loop;
 
   reg  [18:0] mem [0:18];
   reg  [18:0] a0;
@@ -83,9 +88,11 @@ module HuffmanCode (
     if (~rst_n) begin
       state <=  IDLE;
       phase <=  4'b0;
+      loop  <=  4'd0;
     end else begin
       state <=  next_state;
       phase <=  next_phase;
+      loop  <=  next_loop;
     end
   end
 
@@ -97,20 +104,51 @@ module HuffmanCode (
       else
         next_state  = IDLE;
       next_phase = 4'b0;
+      next_loop = 4'd0;
     end
     CODING: begin
-      if (phase == 4'd9)
+      if (phase == 4'd9) begin
         next_state  = TRAVERSE;
-      else
+        next_phase = 4'd0;
+      end else begin
         next_state  = CODING;
-      next_phase =  (phase == 4'd9) ? 4'b0 : phase + 1;
+        next_phase = phase + 1;
+      end
+      next_loop = 4'd0;
     end
-    // TRAVERSE: begin
-    //   //TODO
-    // end
+    TRAVERSE: begin
+      if (phase == 4'd8) begin
+        next_state  = OUTPUT;
+        next_phase = 4'd0;
+        next_loop = code_length[0];
+      end else begin
+        next_state  = TRAVERSE;
+        next_phase = phase + 1;
+        next_loop = 4'd0;
+      end
+    end
+    OUTPUT: begin
+      if (loop == 4'd1) begin
+        if (phase == 4'd9) begin
+          next_state = IDLE;
+          next_phase = 4'd0;
+          next_loop = 4'd0;
+        end else begin
+          next_state = OUTPUT;
+          next_phase = phase + 1;
+          next_loop = code_length[phase+1];
+        end
+      end
+      else begin
+        next_state = OUTPUT;
+        next_phase = phase;
+        next_loop = loop - 1;
+      end
+    end
     default: begin
       next_state = state;
       next_phase = phase;
+      next_loop = loop;
     end
     endcase
   end
@@ -133,19 +171,20 @@ module HuffmanCode (
       a13   <=  19'b0;
       a14   <=  19'b0;
       a15   <=  19'b0;
-    end else if (state==CODING) begin
+    end
+    else if (state==CODING) begin
       case(phase)
       4'd0: begin
-        a0    <=  data_out0;
-        a1    <=  data_out1;
-        a2    <=  data_out2;
-        a3    <=  data_out3;
-        a4    <=  data_out4;
-        a5    <=  data_out5;
-        a6    <=  data_out6;
-        a7    <=  data_out7;
-        a8    <=  data_out8;
-        a9    <=  data_out9;
+        a0    <=  data_in0;
+        a1    <=  data_in1;
+        a2    <=  data_in2;
+        a3    <=  data_in3;
+        a4    <=  data_in4;
+        a5    <=  data_in5;
+        a6    <=  data_in6;
+        a7    <=  data_in7;
+        a8    <=  data_in8;
+        a9    <=  data_in9;
         a10   <=  19'd255;
         a11   <=  19'd255;
         a12   <=  19'd255;
@@ -334,7 +373,8 @@ module HuffmanCode (
         a15   <=  20'b0;
       end
       endcase
-    end else begin
+    end
+    else begin
       a0    <=  20'b0;
       a1    <=  20'b0;
       a2    <=  20'b0;
@@ -360,7 +400,8 @@ module HuffmanCode (
       for (i = 0; i < 19; i = i + 1) begin
         mem[i] <=  19'b0;
       end
-    end else if (state==CODING) begin
+    end
+    else if (state == CODING) begin
       case (phase)
       4'd0: ;
       4'd1: begin
@@ -443,6 +484,110 @@ module HuffmanCode (
       .sort15   (sort15)
     );
 
-  //TODO traverse
+  // traverse
+  genvar j;
+  reg [8:0] code_result [0:9];
+  reg [3:0] code_length [0:9];
+  reg [4:0] index [0:9];
 
-  endmodule
+  generate
+    for (j = 0; j < 10; j = j + 1) begin
+      always @(posedge clk or negedge rst_n) begin
+        if (~rst_n) begin
+          code_result[j]  <=  9'b0;
+          code_length[j]  <=  4'b0;
+          index[j]  <=  5'b0;
+        end else if (state == TRAVERSE) begin
+          case (phase)
+          4'd0: begin
+            code_result[j][0]  <=  mem[j][13];
+            code_length[j]  <=  code_length[j] + 1;
+            index[j]  <=  mem[j][18:14];
+          end
+          4'd1: begin
+            if (index[j] != 5'd18) begin
+              code_result[j][1]  <= mem[index[j]][13];
+              code_length[j]  <=  code_length[j] + 1;
+              index[j]  <=  mem[index[j]][18:14];
+            end
+          end
+          4'd2: begin
+            if (index[j] != 5'd18) begin
+              code_result[j][2]  <= mem[index[j]][13];
+              code_length[j]  <=  code_length[j] + 1;
+              index[j]  <=  mem[index[j]][18:14];
+            end
+          end
+          4'd3: begin
+            if (index[j] != 5'd18) begin
+              code_result[j][3]  <=  mem[index[j]][13];
+              code_length[j]  <=  code_length[j] + 1;
+              index[j]  <=  mem[index[j]][18:14];
+            end
+          end
+          4'd4: begin
+            if (index[j] != 5'd18) begin
+              code_result[j][4]  <= mem[index[j]][13];
+              code_length[j]  <=  code_length[j] + 1;
+              index[j]  <=  mem[index[j]][18:14];
+            end
+          end
+          4'd5: begin
+            if (index[j] != 5'd18) begin
+              code_result[j][5]  <= mem[index[j]][13];
+              code_length[j]  <=  code_length[j] + 1;
+              index[j]  <=  mem[index[j]][18:14];
+            end
+          end
+          4'd6: begin
+            if (index[j] != 5'd18) begin
+              code_result[j][6]  <= mem[index[j]][13];
+              code_length[j]  <=  code_length[j] + 1;
+              index[j]  <=  mem[index[j]][18:14];
+            end
+          end
+          4'd7: begin
+            if (index[j] != 5'd18) begin
+              code_result[j][7]  <= mem[index[j]][13];
+              code_length[j]  <=  code_length[j] + 1;
+              index[j]  <=  mem[index[j]][18:14];
+            end
+          end
+          4'd8: begin
+            if (index[j] != 5'd18) begin
+              code_result[j][8]  <= mem[index[j]][13];
+              code_length[j]  <=  code_length[j] + 1;
+              index[j]  <=  mem[index[j]][18:14];
+            end
+          end
+          default:  begin
+            code_result[j]  <= 9'b0;
+            code_length[j]  <= 4'b0;
+            index[j]  <=  5'b0;
+          end
+          endcase
+        end
+      end
+    end
+  endgenerate
+
+  always @(posedge clk or negedge rst_n) begin
+    if (~rst_n) begin
+      data_out  <=  9'd0;
+      data_len  <=  4'd0;
+    end
+    else begin
+      if (next_state == OUTPUT) begin
+        data_out  <=  code_result[next_phase];
+        data_len  <=  code_length[next_phase];
+      end
+      else begin
+        data_out  <=  9'd0;
+        data_len  <=  4'd0;
+      end
+    end
+  end
+
+  assign trans_start =  (state == OUTPUT) ? 1'b1 : 1'b0;
+
+endmodule
