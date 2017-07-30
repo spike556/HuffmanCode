@@ -59,54 +59,19 @@ module huffmancode_test();
     #2 start_done = 1'b0;
   end
 
-  wire  ack_coding;
-  wire  req_coding;
-  wire  [18:0]  data0;
-  wire  [18:0]  data1;
-  wire  [18:0]  data2;
-  wire  [18:0]  data3;
-  wire  [18:0]  data4;
-  wire  [18:0]  data5;
-  wire  [18:0]  data6;
-  wire  [18:0]  data7;
-  wire  [18:0]  data8;
-  wire  [18:0]  data9;
+  wire        output_data;    // MSB first
+  wire        output_start;
+  wire        output_done;
 
-  freqcount freq_inst(
-    .clk          (clk),
-    .rst_n        (rst_n),
-    .start        (start),             // pulse signal
-    .start_done   (start_done),        // along with the last data_in, pulse signal
-    .data_in      (data_in),
-    .ack_coding   (ack_coding),       // return signal of huffman coding module
-    .req_coding   (req_coding),       // request signal of huffman coding module
-    .data_out0    (data0),
-    .data_out1    (data1),
-    .data_out2    (data2),
-    .data_out3    (data3),
-    .data_out4    (data4),
-    .data_out5    (data5),
-    .data_out6    (data6),
-    .data_out7    (data7),
-    .data_out8    (data8),
-    .data_out9    (data9)
-    );
+  huffman_top sim_top(
+   .clk           (clk),
+   .rst_n         (rst_n),
+   .start         (start),             // pulse signal
+   .start_done    (start_done),        // along with the last data_in, pulse signal
+   .data_in       (data_in),
+   .output_data   (output_data),    // MSB first
+   .output_start  (output_start),
+   .output_done   (output_done)
+   );
 
-  HuffmanCode huffmancode (
-      .clk        (clk),
-      .rst_n      (rst_n),
-      .data_out0  (data0),
-      .data_out1  (data1),
-      .data_out2  (data2),
-      .data_out3  (data3),
-      .data_out4  (data4),
-      .data_out5  (data5),
-      .data_out6  (data6),
-      .data_out7  (data7),
-      .data_out8  (data8),
-      .data_out9  (data9),
-      .req_coding (req_coding),
-      .ack_coding (ack_coding)
-      //TODO add signal
-      );
 endmodule
